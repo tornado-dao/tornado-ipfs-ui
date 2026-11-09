@@ -3,15 +3,22 @@
 FROM node@sha256:8f6881869150049f8f1228a2f828c3dc1d0a012f136175f02ae46a83c0a1002b
 
 # install wget, git and necessary certificates so we can install IPFS below
-RUN apt update && apt install --yes --no-install-recommends wget git apt-transport-https ca-certificates && rm -rf /var/lib/apt/lists/*
+# Debian 11 (bullseye) moved to archive.debian.org, whose Release files have expired
+RUN printf 'deb http://archive.debian.org/debian bullseye main\ndeb http://archive.debian.org/debian-security bullseye-security main\n' > /etc/apt/sources.list \
+	&& apt-get -o Acquire::Check-Valid-Until=false update \
+	&& apt-get install --yes --no-install-recommends wget git apt-transport-https ca-certificates \
+	&& rm -rf /var/lib/apt/lists/*
 
-# install IPFS
+# install IPFS from its GitHub release, checked against the release's sha512
 WORKDIR /home/root
-RUN wget -qO - https://dist.ipfs.tech/kubo/v0.29.0/kubo_v0.29.0_linux-amd64.tar.gz | tar -xvzf - \
+ENV KUBO_SHA512=2df5191393e0dee5e7a6f301d56a3f9d19041dd4076bb78483af042fed3b107a08968c6853b5b84f3699139b1527556f9c812e6924ea079e8be5909dc77fe65b
+RUN wget -q https://github.com/ipfs/kubo/releases/download/v0.29.0/kubo_v0.29.0_linux-amd64.tar.gz \
+	&& echo "$KUBO_SHA512  kubo_v0.29.0_linux-amd64.tar.gz" | sha512sum -c - \
+	&& tar -xzf kubo_v0.29.0_linux-amd64.tar.gz \
 	&& cd kubo \
 	&& ./install.sh \
 	&& cd .. \
-	&& rm -rf kubo
+	&& rm -rf kubo kubo_v0.29.0_linux-amd64.tar.gz
 RUN ipfs init
 
 ENV GIT_REPOSITORY=https://github.com/tornado-dao/classic-ui.git
